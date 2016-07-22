@@ -44,6 +44,7 @@ static int		cacheline_size = 32;
 static unsigned long	sum;
 static unsigned long	twiddle = 1000;
 static int		do_bonding;
+static int		oneshot = 0;
 
 #define CPS_FILE "counts_per_sec"
 
@@ -113,7 +114,17 @@ static void itimer(int sig)
 
 		d_blp = total_blp;
 		cpu_load = 1.0 - (d_blp / d_counts_per_sec);
-		printf("System load:%5.1f%%", cpu_load * 100.0);
+		if (!oneshot)
+			printf("System load:%5.1f%%", cpu_load * 100.0);
+		else {
+			oneshot--;
+			if (oneshot == 0) {
+				printf("%5.1f", cpu_load * 100.0);
+				fflush(stdout);
+				exit (0);
+			}
+		}
+			
 		if (do_bonding) {
 			printf(" || Free:");
 			for (i = 0; i < nr_cpus; i++) {
@@ -122,7 +133,9 @@ static void itimer(int sig)
 				printf(" %5.1f%%(%d)", cpu_load * 100.0, i);
 			}
 		}
-		printf("\n");
+
+		if (!oneshot)
+			printf("\n");
 				
 	}
 }
@@ -223,13 +236,14 @@ static void exit_handler(void)
 
 static void usage(void)
 {
-	fprintf(stderr,	"Usage: cyclesoak [-BCdh] [-N nr_cpus] [-p period]\n"
+	fprintf(stderr,	"Usage: cyclesoak [-BCdh1] [-N nr_cpus] [-p period]\n"
 			"\n"
 			"  -B:      Generate per-CPU statistics\n"
 			"  -C:      Calibrate CPU load\n"
 			"  -d:      Debug (more d's, more fun)\n"
 			"  -h:      This message\n"
 			"  -N:      Tell cyclesoak how many CPUs you have\n"
+			"  -1:      Compute one value and exit\n"
 			"  -p:      Set the load sampling period (seconds)\n"
 		);
 	exit(1);
@@ -240,7 +254,7 @@ int main(int argc, char *argv[])
 	int c;
 	nr_cpus = -1;
 
-	while ((c = getopt(argc, argv, "BCdhN:p:")) != -1) {
+	while ((c = getopt(argc, argv, "BCdh1N:p:")) != -1) {
 		switch (c) {
 		case 'B':
 			do_bonding++;
@@ -260,6 +274,9 @@ int main(int argc, char *argv[])
 		case 'p':
 			period_secs = strtol(optarg, NULL, 10);
 			break;
+		case '1':
+			oneshot = 2;
+			break;
 		case '?':
 			usage();
 			break;
@@ -268,7 +285,8 @@ int main(int argc, char *argv[])
 
 	if (nr_cpus == -1) {
 		nr_cpus = get_cpus();
-		printf("using %d CPUs\n", nr_cpus);
+		if (!oneshot)
+			printf("using %d CPUs\n", nr_cpus);
 	}
 
 	setpgrp();
