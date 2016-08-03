@@ -16,6 +16,9 @@ udpspam: udpspam.o
 
 zcc.o zcs.o zclib.o: zc.h
 
+install:
+	install -m 0755  cyclesoak $(DESTDIR)/usr/bin
+
 clean:
 	$(RM) *.o $(ALL) counts_per_sec
 
